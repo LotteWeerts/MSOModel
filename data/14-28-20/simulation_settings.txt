@@ -1,0 +1,1 @@
+{"storeData": true, "input_neurons": 500, "batchsize": 1000, "parallel": 1, "MSO_neurons": 100, "memorySavingMode": 2, "vt": 3.0, "T": 1.0, "path": "2016-08-31/14-28-20", "timesteps": 10000000, "dt": 0.005, "ITD": 0.0, "ITDoptions": [0.0]}
