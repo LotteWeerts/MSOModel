@@ -1,8 +1,10 @@
 # MSOModelModule
 
+Welcome to the MSOmodelModule! This is the documentation of the model of the MSO as shown in Weerts (2016). This README file contains instructions on installation and usage and instructions on how to reproduce the graphs in chapter 3, 4 and the appendix. 
+
 ## Installation 
 
-This is the documentation of the model of the MSO as shown in Weerts (2016). To use this package you need to install Python (https://www.python.org/downloads/). This automatically installs pip, a package management system used to install Python packages. 
+To use this package you need to install Python (https://www.python.org/downloads/). This automatically installs pip, a package management system used to install Python packages. 
 
 We assume for all commands given in this README that you are in the folder where this file is located. 
 
@@ -53,6 +55,8 @@ Here:
 
 The MSO neuron will first 'warm up' for 5 batches, that is, it will run without STDP rules being applied. 
 
+Note that the large simulations as presented in the report can take a long time to run (e.g. up to two days for 50 neurons for 1000 seconds in simulation time) so we recommend testing for shorter time periods or a smaller amount of MSO neurons. 
+
 ### Use the test package to run tests on trained models 
 
 ```
@@ -66,6 +70,6 @@ Here
 * `path` is the path of the folder where your MSO simulation is stored. This is generally of the form `day/time`. 
 This will generate a test folder in the folder that stores a sparse matrix with all the spikes of all the MSO neurons in those 10 ms (note that this will be a big file). 
 
-Please do not run this method on the models stored in the dataset, as the addition of new test files could disrupt the notebooks that generate the figures (see above). 
+Please do not run this method on the models stored in the dataset, as the addition of new test files could disrupt the notebooks that generate the figures (see above) (you could however just copy one of the data folders and run the above command on the path of your copied folder).  
 
 * Weerts, L. Modelling Unsupervised Spike-Timing-Dependent Plasticity for the Detection of Interaural Time Differences in the Medial Superior Olive (2016) 
