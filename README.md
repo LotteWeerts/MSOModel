@@ -2,6 +2,14 @@
 
 Welcome to the documentaion of the MSOmodelModule! This is the documentation of the model of the MSO as shown in Weerts (2016). This README file contains instructions on installation and usage and instructions on how to reproduce the graphs in chapter 3, 4 and the appendix. 
 
+## Contents
+
+This repository contains the following folders:
+
+* `src/` Here is the MSOModelModule located and the notebooks (for reproducing the graphs) have their own folder as well
+* `doc/` This contains the documentation of the functions on the MSOModelModule
+* `data/` Here the data used for the generation of the figures of the report is stored 
+
 ## Installation 
 
 To use this package you need to install Python (https://www.python.org/downloads/). This automatically installs pip, a package management system used to install Python packages. 
@@ -32,6 +40,8 @@ jupyter notebook src/notebooks/
 
 Now you can simply click on each of the chapters and click on "run all" to run the code that's displayed. This will generate the figures of that particular chapter. 
 
+The Appendix notebook also contains instructions for how to run speedtests on the MSO model.
+
 ### Use the MSO model to perform your own tests
 
 You can run the MSO model through the command line as follows:
@@ -56,6 +66,8 @@ Here:
 The MSO neuron will first 'warm up' for 5 batches, that is, it will run without STDP rules being applied. 
 
 Note that the large simulations as presented in the report can take a long time to run (e.g. up to two days for 50 neurons for 1000 seconds in simulation time) so we recommend testing for shorter time periods or a smaller amount of MSO neurons. 
+
+The Appendix notebook contains instructions for how to run speedtests on the MSO model.
 
 ### Use the test package to run tests on trained models 
 
