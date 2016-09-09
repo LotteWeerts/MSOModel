@@ -1,0 +1,388 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>MSOModelModule.test &#8212; msomodel 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="msomodel 1.0 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for MSOModelModule.test</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot; The test module contains helper functions that can be used to test the MSOModel and analyse its results. &quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">core</span> <span class="k">import</span> <span class="n">MSOModel</span>
+<span class="kn">from</span> <span class="nn">os</span> <span class="k">import</span> <span class="n">listdir</span>
+<span class="kn">import</span> <span class="nn">matplotlib.gridspec</span> <span class="k">as</span> <span class="nn">gridspec</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">gzip</span>
+<span class="kn">import</span> <span class="nn">matplotlib</span> <span class="k">as</span> <span class="nn">mpl</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">getopt</span>
+
+
+<div class="viewcode-block" id="ITDcorrelation"><a class="viewcode-back" href="../../index.html#MSOModelModule.test.ITDcorrelation">[docs]</a><span class="k">def</span> <span class="nf">ITDcorrelation</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">ITDoptions</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        ITD correlation runs an MSO model stored in a particular path for the given ITD options</span>
+<span class="sd">        to test its responses for 10 ms. It stores the spikes of the test in a test folder that is</span>
+<span class="sd">        created in the folder where the simulation is stored.</span>
+
+<span class="sd">        :param t: The time at which the simulation should be tested</span>
+<span class="sd">        :param ITDoptions: an array that contains all ITDs that should be tested</span>
+<span class="sd">        :param path: a string that refers to the path where the simulation is stored</span>
+
+
+<span class="sd">        .. note::</span>
+<span class="sd">            The parameter t is in timesteps, not in milliseconds. You compute the time you want to test</span>
+<span class="sd">            the simulation on as t \ dt, where dt is the stepsize. This requires the existence of a file</span>
+<span class="sd">            (t \ dt - 1)_w.json.gz in the data_per_batch section of the simulation folder</span>
+<span class="sd">   </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="nb">print</span> <span class="n">t</span>
+
+    <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="o">.</span><span class="n">loadLearnedModel</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">timestamp</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">time</span><span class="p">())[:</span><span class="o">-</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">)</span>  <span class="c1"># Give similar simulations a unique folder</span>
+
+    <span class="n">npath</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/tests/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">npath</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">npath</span><span class="p">)</span>
+
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="n">t</span><span class="p">,</span> <span class="s1">&#39;ITDoptions&#39;</span><span class="p">:</span> <span class="n">ITDoptions</span><span class="p">}</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/parameters.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">npath</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span>
+
+    <span class="k">del</span> <span class="n">sim</span>
+
+    <span class="k">for</span> <span class="n">ITD</span> <span class="ow">in</span> <span class="n">ITDoptions</span><span class="p">:</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="o">.</span><span class="n">loadLearnedModel</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sim</span><span class="o">.</span><span class="n">setITD</span><span class="p">(</span><span class="n">ITD</span><span class="p">)</span>
+        <span class="n">v_spikes</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">test</span><span class="p">(</span><span class="n">timesteps</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/vspikes_</span><span class="si">{}</span><span class="s1">.json.gz&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">npath</span><span class="p">,</span> <span class="n">ITD</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">v_spikes</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">outfile</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">sim</span></div>
+
+
+<span class="k">def</span> <span class="nf">plotITDTest</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">ITDs</span><span class="p">):</span>
+
+    <span class="kn">from</span> <span class="nn">matplotlib</span> <span class="k">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+    <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="o">.</span><span class="n">loadLearnedModel</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">left</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">p_values_left</span>
+    <span class="n">right</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">p_values_right</span>
+
+    <span class="n">time</span> <span class="o">=</span> <span class="mf">10.0</span>
+    <span class="n">t_range</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">t_range</span><span class="p">[:</span><span class="n">sim</span><span class="o">.</span><span class="n">batchsize</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">]</span>
+
+    <span class="c1">#ITDs = [-0.5, 0.0, 0.5]</span>
+    <span class="c1">#ITDs = [-1.0, -0.75, -0.5, -0.25, 0.0, 0.25, 0.5, 0.75, 1.0]</span>
+
+    <span class="n">ITD_results</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ITDs</span><span class="p">))]</span>
+
+    <span class="n">timestamp</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">time</span><span class="p">())[:</span><span class="o">-</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">)</span>  <span class="c1"># Give similar simulations a unique folder</span>
+    <span class="n">npath</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">{}</span><span class="s2">/tests/ITDtest/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">npath</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">npath</span><span class="p">)</span>
+
+    <span class="c1">#for i, ITD in enumerate([0.0, 0.1, 0.2, 0.3, 0.4, 0.5]):</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ITD</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ITDs</span><span class="p">):</span>
+        <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">Testing </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ITD</span><span class="p">)</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="o">.</span><span class="n">loadLearnedModel</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sim</span><span class="o">.</span><span class="n">setITD</span><span class="p">(</span><span class="n">ITD</span><span class="p">)</span>
+        <span class="n">v_spikes</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">test</span><span class="p">(</span><span class="mi">10000</span><span class="p">)</span>
+        <span class="n">ITD_results</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">v_spikes</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">sim</span><span class="o">.</span><span class="n">p_values_left</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">sim</span><span class="o">.</span><span class="n">p_values_right</span><span class="o">.</span><span class="n">copy</span><span class="p">()]</span>
+
+        <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/ITD_</span><span class="si">{}</span><span class="s1">.json.gz&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">npath</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">ITD</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">)),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">v_spikes</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">outfile</span><span class="p">)</span>
+
+    <span class="n">T</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">T</span>
+
+    <span class="k">for</span> <span class="n">neuron</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">MSO_neurons</span><span class="p">):</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span><span class="mi">3</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">ITDs</span><span class="p">),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="p">(</span><span class="n">gs</span><span class="o">.</span><span class="n">get_geometry</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">gs</span><span class="o">.</span><span class="n">get_geometry</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t_range</span><span class="p">[:</span><span class="n">time</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">],</span> <span class="n">left</span><span class="p">[:</span><span class="n">time</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t_range</span><span class="p">[:</span><span class="n">time</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">],</span> <span class="n">right</span><span class="p">[:</span><span class="n">time</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;ITD: </span><span class="si">{}</span><span class="s1"> ms&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">ITD</span><span class="p">))</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">left_idx</span> <span class="o">=</span> <span class="mf">0.5</span><span class="o">*</span><span class="n">sim</span><span class="o">.</span><span class="n">input_neurons</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Delays after learning (left)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">delays</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="p">:</span><span class="n">left_idx</span><span class="p">],</span> <span class="mi">400</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">7.5</span><span class="p">),</span> <span class="n">weights</span><span class="o">=</span><span class="n">sim</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="p">:</span><span class="n">left_idx</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Delay (ms)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Delays / bin&#39;</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Delays after learning (right)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">delays</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">left_idx</span><span class="p">:],</span> <span class="mi">400</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="p">(</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">7.5</span><span class="p">),</span> <span class="n">weights</span><span class="o">=</span><span class="n">sim</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">left_idx</span><span class="p">:])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Delay (ms)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Delays / bin&#39;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ITD</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ITDs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">ax</span><span class="p">[</span><span class="mi">3</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">2</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">sharey</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ax</span><span class="p">[</span><span class="mi">3</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">2</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+
+            <span class="n">v_spikes</span><span class="p">,</span> <span class="n">left_n</span><span class="p">,</span> <span class="n">right_n</span> <span class="o">=</span> <span class="n">ITD_results</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="n">spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">v_spikes</span><span class="p">[</span><span class="n">neuron</span><span class="p">]</span> <span class="o">==</span> <span class="mf">1.0</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">ax</span><span class="p">[</span><span class="mi">3</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">spikes</span><span class="p">)</span><span class="o">*</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span> <span class="o">%</span> <span class="n">T</span><span class="p">,</span> <span class="n">T</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">T</span><span class="p">])</span>
+            <span class="n">ax</span><span class="p">[</span><span class="mi">3</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Total spikes: </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">spikes</span><span class="p">)))</span>
+
+            <span class="n">ax</span><span class="p">[</span><span class="mi">4</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">2</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="n">ax</span><span class="p">[</span><span class="mi">4</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;ITD: </span><span class="si">{}</span><span class="s1"> ms&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ITD</span><span class="p">))</span>
+            <span class="n">ax</span><span class="p">[</span><span class="mi">4</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t_range</span><span class="p">[:</span><span class="n">time</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">],</span> <span class="n">left_n</span><span class="p">[:</span><span class="n">time</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">])</span>
+            <span class="n">ax</span><span class="p">[</span><span class="mi">4</span> <span class="o">+</span> <span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t_range</span><span class="p">[:</span><span class="n">time</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">],</span> <span class="n">right_n</span><span class="p">[:</span><span class="n">time</span><span class="o">/</span><span class="n">sim</span><span class="o">.</span><span class="n">dt</span><span class="p">])</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">plotDelays</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">maxVal</span><span class="p">):</span>
+
+    <span class="kn">from</span> <span class="nn">matplotlib</span> <span class="k">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/delays.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">delays</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/simulation_settings.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/parameters.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+    <span class="c1">#with gzip.open(&#39;{}/data_per_batch/{}_vspikes.json.gz&#39;.format(path, maxVal - 1), &#39;r&#39;) as f:</span>
+    <span class="c1">#    vspikes = np.array(json.loads(f.readlines()[0]))</span>
+
+    <span class="n">stepsize</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;batchsize&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;dt&#39;</span><span class="p">]</span>
+    <span class="n">t_range</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">maxVal</span> <span class="o">+</span> <span class="n">stepsize</span><span class="p">,</span> <span class="n">stepsize</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">nr_neurons</span> <span class="o">=</span> <span class="n">delays</span><span class="o">.</span><span class="n">shape</span>
+
+    <span class="n">binrange</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;DELAY_MU&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">3</span><span class="o">*</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;DELAY_SIGMA&#39;</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="s1">&#39;DELAY_MU&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="mi">3</span><span class="o">*</span><span class="n">c</span><span class="p">[</span><span class="s1">&#39;DELAY_SIGMA&#39;</span><span class="p">])</span>
+
+    <span class="n">J</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">nr_neurons</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_range</span><span class="p">)))</span>
+    <span class="n">vspikes</span> <span class="o">=</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">MSO_neurons</span><span class="p">)]</span>
+
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">t_range</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">J</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="k">continue</span>
+
+        <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/data_per_batch/</span><span class="si">{}</span><span class="s1">_w.json.gz&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="p">)),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">J</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+
+    <span class="n">vspikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="mi">5</span><span class="p">))[:</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="nb">print</span> <span class="n">i</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+
+        <span class="n">colors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;input_neurons&#39;</span><span class="p">])</span>
+        <span class="n">mymap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="s2">&quot;spring&quot;</span><span class="p">)</span>
+        <span class="c1"># get the colors from the color map</span>
+        <span class="n">my_colors</span> <span class="o">=</span> <span class="n">mymap</span><span class="p">(</span><span class="n">colors</span><span class="p">)</span>
+        <span class="n">mymap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="s2">&quot;winter&quot;</span><span class="p">)</span>
+        <span class="n">my_colors_warm</span> <span class="o">=</span> <span class="n">mymap</span><span class="p">(</span><span class="n">colors</span><span class="p">)</span>
+
+        <span class="n">bins</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="nb">max</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;input_neurons&#39;</span><span class="p">])</span>
+        <span class="n">delays_id</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">delay</span> <span class="o">&gt;=</span> <span class="n">bins</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">delay</span> <span class="ow">in</span> <span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="p">[</span><span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[:</span><span class="mi">7</span><span class="p">,</span> <span class="p">:]),</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="p">:]),</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="p">:])]</span>
+
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nr_neurons</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">nr_neurons</span> <span class="o">/</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t_range</span><span class="o">*</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dt&#39;</span><span class="p">]</span><span class="o">/</span><span class="mf">1000.0</span><span class="p">,</span> <span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="p">:],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">my_colors</span><span class="p">[</span><span class="n">delays_id</span><span class="p">[</span><span class="n">j</span><span class="p">]])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">t_range</span><span class="o">*</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dt&#39;</span><span class="p">]</span><span class="o">/</span><span class="mf">1000.0</span><span class="p">,</span> <span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="p">:],</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">my_colors_warm</span><span class="p">[</span><span class="n">delays_id</span><span class="p">[</span><span class="n">j</span><span class="p">]])</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">r&#39;Synaptic strength $w$&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Time (s)&#39;</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="n">t_range</span><span class="p">)</span><span class="o">*</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dt&#39;</span><span class="p">]</span><span class="o">/</span><span class="mf">1000.0</span><span class="p">])</span>
+
+        <span class="n">cmap</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">spring</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span><span class="n">vmin</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">vmax</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+
+        <span class="n">cb1</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">colorbar</span><span class="o">.</span><span class="n">ColorbarBase</span><span class="p">(</span><span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+                                        <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span>
+                                        <span class="n">orientation</span><span class="o">=</span><span class="s1">&#39;horizontal&#39;</span><span class="p">)</span>
+
+        <span class="n">cmap</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">winter</span>
+        <span class="n">norm</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span><span class="n">vmin</span><span class="o">=</span><span class="nb">min</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">vmax</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+
+        <span class="n">cb2</span> <span class="o">=</span> <span class="n">mpl</span><span class="o">.</span><span class="n">colorbar</span><span class="o">.</span><span class="n">ColorbarBase</span><span class="p">(</span><span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+                                        <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span>
+                                        <span class="n">orientation</span><span class="o">=</span><span class="s1">&#39;horizontal&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Delays (ms)&#39;</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">gridspec</span><span class="o">.</span><span class="n">GridSpec</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="mi">6</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[:</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[:</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sharey</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="c1">#ax[2] = plt.subplot(gs[1, :])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">sharey</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="mi">2</span><span class="p">:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sharey</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="c1">#ax[5] = plt.subplot(gs[3, :])</span>
+
+        <span class="n">left_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">delays</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="mf">2.0</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Delays before learning (left)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:</span><span class="n">left_idx</span><span class="p">],</span> <span class="mi">400</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="n">binrange</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:</span><span class="n">left_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Delay (ms)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Delays / bin * weight&#39;</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Delays before learning (right)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">left_idx</span><span class="p">:],</span> <span class="mi">400</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="n">binrange</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">left_idx</span><span class="p">:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Delay (ms)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Delays / bin * weight&#39;</span><span class="p">)</span>
+
+        <span class="c1">#v_spikes = np.array(vspikes[i])</span>
+        <span class="c1">#firstvspikes = v_spikes[v_spikes &lt; stepsize]</span>
+        <span class="c1">#ax[2].hist(np.array(firstvspikes)*params[&#39;dt&#39;] % params[&#39;T&#39;], params[&#39;T&#39;]/params[&#39;dt&#39;], range=[0, params[&#39;T&#39;]])</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Delays after learning (left)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:</span><span class="n">left_idx</span><span class="p">],</span> <span class="mi">400</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="n">binrange</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="p">:</span><span class="n">left_idx</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_range</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Delay (ms)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Delays / bin * weight&#39;</span><span class="p">)</span>
+
+        <span class="n">ax</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Delays after learning (right)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">delays</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">left_idx</span><span class="p">:],</span> <span class="mi">400</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="n">binrange</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">J</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">left_idx</span><span class="p">:,</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_range</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Delay (ms)&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Delays / bin * weight&#39;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="n">ax</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">axis</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">axis</span><span class="o">.</span><span class="n">locator_params</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="n">nbins</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">opts</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="n">getopt</span><span class="o">.</span><span class="n">getopt</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="s2">&quot;ho:v&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;path=&quot;</span><span class="p">,</span> <span class="s2">&quot;timesteps=&quot;</span><span class="p">,</span> <span class="s2">&quot;plotITDtest=&quot;</span><span class="p">,</span> <span class="s2">&quot;plotDelays&quot;</span><span class="p">,</span> <span class="s2">&quot;ITDcorrelation=&quot;</span><span class="p">])</span>
+    <span class="k">except</span> <span class="n">getopt</span><span class="o">.</span><span class="n">GetoptError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">ITDcorrFlag</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">plotITDFlag</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">plotDelaysFlag</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">for</span> <span class="n">opt</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">opts</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--timesteps&quot;</span><span class="p">):</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--path&quot;</span><span class="p">):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">arg</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--ITDcorrelation&quot;</span><span class="p">):</span>
+            <span class="n">ITDoptions</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+            <span class="n">ITDcorrFlag</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--plotITDtest&quot;</span><span class="p">):</span>
+            <span class="n">ITDoptionsPlot</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+            <span class="n">plotITDFlag</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--plotDelays&quot;</span><span class="p">):</span>
+            <span class="n">plotDelaysFlag</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">t</span><span class="p">:</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/data_per_batch/&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">))</span> <span class="k">if</span> <span class="s1">&#39;_w.json.gz&#39;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">])[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">ITDcorrFlag</span><span class="p">:</span>
+        <span class="n">ITDcorrelation</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">ITDoptions</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">plotITDFlag</span><span class="p">:</span>
+        <span class="n">plotITDTest</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">ITDoptionsPlot</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">plotDelaysFlag</span><span class="p">:</span>
+        <span class="n">plotDelays</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">plotITDFlag</span> <span class="ow">or</span> <span class="n">plotDelaysFlag</span><span class="p">:</span>
+        <span class="kn">from</span> <span class="nn">matplotlib</span> <span class="k">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lotte Weerts.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

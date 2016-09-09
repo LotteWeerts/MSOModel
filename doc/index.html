@@ -1,0 +1,563 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Contents &#8212; msomodel 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="msomodel 1.0 documentation" href="#" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="contents">
+<h1>Contents<a class="headerlink" href="#contents" title="Permalink to this headline">¶</a></h1>
+<p>This is the documentaion of the MSOModel module. This documentation contains four sections:</p>
+<ul>
+<li><dl class="first docutils">
+<dt><code class="xref py py-mod docutils literal"><span class="pre">core</span></code></dt>
+<dd><span class="target" id="module-MSOModelModule.core"></span><p class="first last">The core module contains the MSOModel class that runs the simulation.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><code class="xref py py-mod docutils literal"><span class="pre">test</span></code></dt>
+<dd><span class="target" id="module-MSOModelModule.test"></span><p class="first last">The test module contains helper functions that can be used to test the MSOModel and analyse its results.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><code class="xref py py-mod docutils literal"><span class="pre">fancyPlot</span></code></dt>
+<dd><span class="target" id="module-MSOModelModule.fancyPlot"></span><p class="first last">The fancyPlot module contains a set of useful functions for plotting the results</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div>
+<div class="section" id="core-documentation">
+<h1>Core documentation<a class="headerlink" href="#core-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<span class="target" id="module-MSOModelModule.core"></span><p>The core module contains the MSOModel class that runs the simulation.</p>
+<dl class="class">
+<dt id="MSOModelModule.core.MSOModel">
+<em class="property">class </em><code class="descclassname">MSOModelModule.core.</code><code class="descname">MSOModel</code><span class="sig-paren">(</span><em>timesteps, batchsize, vt, input_neurons, MSO_neurons, dt, T, storeData=True, ITDoptions=[0.0], memorySavingMode=2, parallel=1, path=False, delays=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class contains the model of the MSO and methods to run simulations</p>
+<p>The MSOModel is the main class that runs the simulation. See README.txt for instructions how to run it.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>timesteps</strong> &#8211; The number of timesteps (in milliseconds) the simulation should run</li>
+<li><strong>dt</strong> &#8211; Stepsize of simulation (in ms)</li>
+<li><strong>vt</strong> &#8211; Threshold for voltage (theta v)</li>
+<li><strong>batchsize</strong> &#8211; The size of each batch (in milliseconds). For varying ITDs the batchsize determines how often the ITDs are changed.</li>
+<li><strong>input_neurons</strong> &#8211; Number of input neurons (layer 1)</li>
+<li><strong>MSO_neurons</strong> &#8211; Number of MSO neurons (layer 2)</li>
+<li><strong>T</strong> &#8211; The period of the input sound (i.e. determines the frequency)</li>
+<li><strong>storeData</strong> &#8211; Boolean that indicates whether or not simulation results should be stored</li>
+<li><strong>ITDoptions</strong> &#8211; An array of ITDs the simulation can choose from (set to e.g. [0.0] for constant ITD of 0.0)</li>
+<li><strong>path</strong> &#8211; Used for reloading model in a certain with <a class="reference internal" href="#MSOModelModule.core.MSOModel.loadLearnedModel" title="MSOModelModule.core.MSOModel.loadLearnedModel"><code class="xref py py-func docutils literal"><span class="pre">MSOModel.loadLearnedModel()</span></code></a>, don&#8217;t use yourself</li>
+<li><strong>delays</strong> &#8211; Used for reloading models with <a class="reference internal" href="#MSOModelModule.core.MSOModel.loadLearnedModel" title="MSOModelModule.core.MSOModel.loadLearnedModel"><code class="xref py py-func docutils literal"><span class="pre">MSOModel.loadLearnedModel()</span></code></a>, don&#8217;t use yourself</li>
+<li><strong>memorySavingMode</strong> &#8211; Determines the mode for memory saving. See note.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Do not use memorySavingMode 0 or 1. These are only included for completeness (see appendix A). They are slower and take up more memory than memorySavingMode 2.</p>
+</div>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+</tbody>
+</table>
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.P">
+<code class="descname">P</code><span class="sig-paren">(</span><em>t</em>, <em>delay</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.P"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.P" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes P-value for a particular time t (in ms) and delay (in ms)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.batchReset">
+<code class="descname">batchReset</code><span class="sig-paren">(</span><em>firings</em>, <em>batch_I=False</em>, <em>batch_pretrace=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.batchReset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.batchReset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resets simulation to prepare it for a new batch of firings (np.array).
+It precomputes all required values (it depends on the memorySavingMode which values are precomputed and which are not)
+and initiates <strong>delayed_firings</strong>, which contains all the produced spikes such that it is readable for the update function</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.computeITD">
+<code class="descname">computeITD</code><span class="sig-paren">(</span><em>angle</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.computeITD"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.computeITD" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes ITD for a given angle (in degrees)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.createDirectory">
+<code class="descname">createDirectory</code><span class="sig-paren">(</span><em>path=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.createDirectory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.createDirectory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates directory structure in which the simulation is going to be stored</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.euler">
+<code class="descname">euler</code><span class="sig-paren">(</span><em>f</em>, <em>x</em>, <em>args</em>, <em>dt</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.euler"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.euler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the euler integration of a given f with input valus x and args args</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.generateAutoITD">
+<code class="descname">generateAutoITD</code><span class="sig-paren">(</span><em>nr_batches</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.generateAutoITD"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.generateAutoITD" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method used to compute a sequence of ITDs according to the sound localisation task</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.generateFirings">
+<code class="descname">generateFirings</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.generateFirings"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.generateFirings" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates firings for a single batch. Returns an n x batchsize array whose entries
+indicate whether or not neuron n fired at time t. Incorporates refractory period.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="MSOModelModule.core.MSOModel.loadLearnedModel">
+<em class="property">classmethod </em><code class="descname">loadLearnedModel</code><span class="sig-paren">(</span><em>folder</em>, <em>t</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.loadLearnedModel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.loadLearnedModel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class method that can be used to load a pre-existing model and test or run the model.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>folder</strong> &#8211; Path to the folder where the model is stored</li>
+<li><strong>t</strong> &#8211; Time identifier of the weight matrix that should be loaded, i.e. if the filename is &#8216;19999_w.json.gz&#8217; the t value is 19999</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The value for t is the time step, not the time in milliseconds. If you would like
+to reload a simulation after 500 ms for a simulation with dt = 0.005, you compute the correct weight matrix as follows:</p>
+<blockquote class="last">
+<div>500/0.005*1000 = 100000000</div></blockquote>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.reset">
+<code class="descname">reset</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.reset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used to reset all parameters, for example when the model is tested</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.run">
+<code class="descname">run</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.run"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Core method that runs the simulation for the initialised parameters</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.runBatch">
+<code class="descname">runBatch</code><span class="sig-paren">(</span><em>queue</em>, <em>i</em>, <em>offset</em>, <em>learning</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.runBatch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.runBatch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs update for a parallel process</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.setFrequency">
+<code class="descname">setFrequency</code><span class="sig-paren">(</span><em>T</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.setFrequency"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.setFrequency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resets P-values for the given period T of the input sound</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.setITD">
+<code class="descname">setITD</code><span class="sig-paren">(</span><em>ITD</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.setITD"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.setITD" title="Permalink to this definition">¶</a></dt>
+<dd><p>Moves precomputed P-values such that a particular ITD is imposed</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.storeBatch">
+<code class="descname">storeBatch</code><span class="sig-paren">(</span><em>t</em>, <em>batch</em>, <em>w</em>, <em>v_spikes=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.storeBatch"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.storeBatch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stores weights of timestep t</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.storeParameters">
+<code class="descname">storeParameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.storeParameters"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.storeParameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stores class and object parameters of this particular simulation</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.test">
+<code class="descname">test</code><span class="sig-paren">(</span><em>timesteps=False</em>, <em>ITDs=False</em>, <em>learning=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.test"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.test" title="Permalink to this definition">¶</a></dt>
+<dd><p>Similar as run(), but for testing purposes. Runs for the given number of timesteps (in ms)
+for the ITD it was set to (use <a class="reference internal" href="#MSOModelModule.core.MSOModel.setITD" title="MSOModelModule.core.MSOModel.setITD"><code class="xref py py-func docutils literal"><span class="pre">setITD()</span></code></a> for this purpose) or chooses a random
+ITD from the given set of ITDs. Returns all spikes in a [mso_neurons x (timesteps/dt)]
+array</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.update">
+<code class="descname">update</code><span class="sig-paren">(</span><em>t</em>, <em>parallel_id=0</em>, <em>It=False</em>, <em>offset=0</em>, <em>learning=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.update"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs one time step in the simulation, high memory usage (assumes
+pre-computed I and pretrace values )</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="MSOModelModule.core.MSOModel.updateLowMemory">
+<code class="descname">updateLowMemory</code><span class="sig-paren">(</span><em>t</em>, <em>parallel_id=0</em>, <em>It=False</em>, <em>offset=0</em>, <em>learning=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#MSOModel.updateLowMemory"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.MSOModel.updateLowMemory" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs one time step in the simulation, used for low memory simulations</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.core.main">
+<code class="descclassname">MSOModelModule.core.</code><code class="descname">main</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/core.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.core.main" title="Permalink to this definition">¶</a></dt>
+<dd><p>Can be used to run a simulation from the shell</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-MSOModelModule.test">
+<span id="test-documentation"></span><h1>Test documentation<a class="headerlink" href="#module-MSOModelModule.test" title="Permalink to this headline">¶</a></h1>
+<p>The test module contains helper functions that can be used to test the MSOModel and analyse its results.</p>
+<dl class="function">
+<dt id="MSOModelModule.test.ITDcorrelation">
+<code class="descclassname">MSOModelModule.test.</code><code class="descname">ITDcorrelation</code><span class="sig-paren">(</span><em>path</em>, <em>t</em>, <em>ITDoptions</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/test.html#ITDcorrelation"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.test.ITDcorrelation" title="Permalink to this definition">¶</a></dt>
+<dd><p>ITD correlation runs an MSO model stored in a particular path for the given ITD options
+to test its responses for 10 ms. It stores the spikes of the test in a test folder that is
+created in the folder where the simulation is stored.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>t</strong> &#8211; The time at which the simulation should be tested</li>
+<li><strong>ITDoptions</strong> &#8211; an array that contains all ITDs that should be tested</li>
+<li><strong>path</strong> &#8211; a string that refers to the path where the simulation is stored</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The parameter t is in timesteps, not in milliseconds. You compute the time you want to test
+the simulation on as t dt, where dt is the stepsize. This requires the existence of a file
+(t dt - 1)_w.json.gz in the data_per_batch section of the simulation folder</p>
+</div>
+</dd></dl>
+
+</div>
+<div class="section" id="fancyplot-documentation">
+<h1>FancyPlot documentation<a class="headerlink" href="#fancyplot-documentation" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-MSOModelModule.fancyPlot"></span><p>The fancyPlot module contains a set of useful functions for plotting the results</p>
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.basiccolors">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">basiccolors</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#basiccolors"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.basiccolors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns array containing set of colors used for plots</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.cleanAxes">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">cleanAxes</code><span class="sig-paren">(</span><em>ax</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#cleanAxes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.cleanAxes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Removes ugly spines and ticks of a plot</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.color_variant">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">color_variant</code><span class="sig-paren">(</span><em>hex_color</em>, <em>brightness_offset=1</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#color_variant"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.color_variant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Changes hexadecimal color value to a lighter or darker version</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.computeMonaural">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">computeMonaural</code><span class="sig-paren">(</span><em>w</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#computeMonaural"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.computeMonaural" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the percentage of monaural selective MSO neurons for a given weight matrix</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.loadMeasurements">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">loadMeasurements</code><span class="sig-paren">(</span><em>path</em>, <em>test_nr</em>, <em>precomputed=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#loadMeasurements"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.loadMeasurements" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads the mean firing rate and vector strength of a particular simulation.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>test_nr</strong> &#8211; indicates which test should be loaded (in alphabetical order)</li>
+<li><strong>precomputed</strong> &#8211; whether the MFR and VS are already precomputed or should be loaded</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>from the recorded spike trains (much slower)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.loadMeasurementsPerItd">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">loadMeasurementsPerItd</code><span class="sig-paren">(</span><em>paths</em>, <em>ids</em>, <em>test_nr</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#loadMeasurementsPerItd"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.loadMeasurementsPerItd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads the test results for a given set of paths and indicates which test folders
+should be loaded (in test_nr). The ids is a list that indicates to which class
+each path belongs. I.e. if two simulations had the same parameter settings they
+are concatenated.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.loadSpikeTrain">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">loadSpikeTrain</code><span class="sig-paren">(</span><em>path</em>, <em>test_nr</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#loadSpikeTrain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.loadSpikeTrain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads the spikes at ITD 0.0 for a path in test test_nr (tests are loaded in             alphabetical order)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.loadWeights">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">loadWeights</code><span class="sig-paren">(</span><em>path</em>, <em>t</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#loadWeights"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.loadWeights" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads the weight matrix of timestep t located in the directory path</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.makeColorMap">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">makeColorMap</code><span class="sig-paren">(</span><em>colors</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#makeColorMap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.makeColorMap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a colormap for a given array with colors (can be used for e.g. imshow() plots)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.maxTicks">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">maxTicks</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#maxTicks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.maxTicks" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sets the maximum number of ticks on the x and y axis of ax x</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotBar">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotBar</code><span class="sig-paren">(</span><em>x</em>, <em>y</em>, <em>ax</em>, <em>c</em>, <em>label=''</em>, <em>width=0.2</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotBar"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotBar" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a bar plot with an error bar
+:param x: x-value of bars
+:param y: a 2d array, first dimension is same as x
+:param ax: reference to the axes at which the bar should be plotted
+:param label: string with the label given to each bar
+:param width: width of the barplot</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotDelays">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotDelays</code><span class="sig-paren">(</span><em>path</em>, <em>t</em>, <em>i</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotDelays"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotDelays" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the delay distribution of neuron i at time t for a simulation stored in path</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotDistribution">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotDistribution</code><span class="sig-paren">(</span><em>labels</em>, <em>colors</em>, <em>nr_per_itd</em>, <em>itdoptions</em>, <em>width=0.2</em>, <em>zero=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotDistribution"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotDistribution" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a barplot of a histogram list (nr_per_itd) on x-axis value itdoptions</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotDistributionTaskRandom">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotDistributionTaskRandom</code><span class="sig-paren">(</span><em>labels</em>, <em>colors</em>, <em>nr_per_itd</em>, <em>itdoptions</em>, <em>width=0.2</em>, <em>zero=True</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotDistributionTaskRandom"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotDistributionTaskRandom" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a barplot of a histogram list (nr_per_itd) on x-axis value itdoptions</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotITDCurves">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotITDCurves</code><span class="sig-paren">(</span><em>paths</em>, <em>colors</em>, <em>precomputed=False</em>, <em>test_nr=False</em>, <em>split=False</em>, <em>refvals=False</em>, <em>includePhaseLock=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotITDCurves"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotITDCurves" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the MFR and VS curves for all simulations stored in paths</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>paths</strong> &#8211; list of strings where simulations are stored</li>
+<li><strong>colors</strong> &#8211; list of the colors in which of above mentioned paths should be plotted</li>
+<li><strong>precomputed</strong> &#8211; indicates whether or not the MFR and VS values are already computed or         be computed on the go</li>
+<li><strong>test_nr</strong> &#8211; which number of test folder should be loaded (generally 0)</li>
+<li><strong>split</strong> &#8211; used if the plot has a split to deal with akward value differences</li>
+<li><strong>refvals</strong> &#8211; reference values used for VS plots</li>
+<li><strong>includePhaseLock</strong> &#8211; indicates whether an example of a phase-locked responde should be plotted</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotMeanAndErr">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotMeanAndErr</code><span class="sig-paren">(</span><em>x</em>, <em>y</em>, <em>ax</em>, <em>c</em>, <em>label=''</em>, <em>alpha=0.3</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotMeanAndErr"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotMeanAndErr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the mean and variance of y 
+:param x: x-value of plot 
+:param y: a 2d array, first dimension is same as x
+:param ax: reference to the axes at which the plot should be plotted
+:param label: string with the label given to the plot
+:param alpha: alpha of the plot</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotModulationOrVectorstrength">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotModulationOrVectorstrength</code><span class="sig-paren">(</span><em>mod_per_itd</em>, <em>modpre_per_itd</em>, <em>labels</em>, <em>ptype</em>, <em>colors</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotModulationOrVectorstrength"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotModulationOrVectorstrength" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a barplot of a range of values, a left plot (modpre_per_itd) and right plot (mod_per_itd)
+for each set.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>ptype</strong> &#8211; Stringt of what should be plotted on the y-axis</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotModulationWithoutBefore">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotModulationWithoutBefore</code><span class="sig-paren">(</span><em>mod_per_itd</em>, <em>labels</em>, <em>ptype</em>, <em>colors</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotModulationWithoutBefore"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotModulationWithoutBefore" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a barplot of a range of values (mot per ITD) with given labels</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>ptype</strong> &#8211; Stringt of what should be plotted on the y-axis</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotMonauralBarplot">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotMonauralBarplot</code><span class="sig-paren">(</span><em>paths</em>, <em>colors</em>, <em>labels</em>, <em>t</em>, <em>ids</em>, <em>nr_sim</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotMonauralBarplot"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotMonauralBarplot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the number of monaural MSO neurons at time t in the given simulations
+Combines paths in classes for given class ids and nr_sim</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotWeightEvolvement">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotWeightEvolvement</code><span class="sig-paren">(</span><em>paths</em>, <em>labels</em>, <em>timesteps</em>, <em>colors</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotWeightEvolvement"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotWeightEvolvement" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots the weight evolvement of a simulation stored in path over a range of timesteps</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>paths</strong> &#8211; lists of strings that point to the directory where the simulation is stored</li>
+<li><strong>labels</strong> &#8211; the labels that indicate which path has which label</li>
+<li><strong>timesteps</strong> &#8211; array with all the timesteps should (approximately) be plotted</li>
+<li><strong>colors</strong> &#8211; colors in which each path should be plotted</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.plotWeightEvolvementsClasses">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">plotWeightEvolvementsClasses</code><span class="sig-paren">(</span><em>paths</em>, <em>colors</em>, <em>labels</em>, <em>ts</em>, <em>ids</em>, <em>nr_sim</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#plotWeightEvolvementsClasses"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.plotWeightEvolvementsClasses" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots weight evolvement over paths that may be part of similar classes (e.g. if you have
+two paths that both use the same input these are combined)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="MSOModelModule.fancyPlot.vectorStrength">
+<code class="descclassname">MSOModelModule.fancyPlot.</code><code class="descname">vectorStrength</code><span class="sig-paren">(</span><em>spikes</em>, <em>T</em>, <em>dt</em>, <em>sparse=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/MSOModelModule/fancyPlot.html#vectorStrength"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#MSOModelModule.fancyPlot.vectorStrength" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the vector strength for period T for a particular spike sequence</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>sparse</strong> &#8211; If False, spikes is assumed to be sparse array with ones at         times a spike occurred. If True, spikes is assumed to be a list of indices where</td>
+</tr>
+</tbody>
+</table>
+<p>the MSO neuron has spiked.</p>
+<p>Only works for spike trains of single MSO neurons!</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Contents</a></li>
+<li><a class="reference internal" href="#core-documentation">Core documentation</a></li>
+<li><a class="reference internal" href="#module-MSOModelModule.test">Test documentation</a></li>
+<li><a class="reference internal" href="#fancyplot-documentation">FancyPlot documentation</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lotte Weerts.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/index.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

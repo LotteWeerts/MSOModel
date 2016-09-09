@@ -1,0 +1,273 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Welcome to msomodel’s documentation! &#8212; msomodel 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="msomodel 1.0 documentation" href="index.html" />
+    <link rel="prev" title="Welcome to msomodel’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="welcome-to-msomodel-s-documentation">
+<h1>Welcome to msomodel&#8217;s documentation!<a class="headerlink" href="#welcome-to-msomodel-s-documentation" title="Permalink to this headline">¶</a></h1>
+<p>Contents:</p>
+<div class="toctree-wrapper compound">
+</div>
+<span class="target" id="module-template"></span><p>This module illustrates how to write your docstring in OpenAlea
+and other projects related to OpenAlea.</p>
+<dl class="class">
+<dt id="template.MainClass1">
+<em class="property">class </em><code class="descclassname">template.</code><code class="descname">MainClass1</code><a class="reference internal" href="_modules/template.html#MainClass1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#template.MainClass1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>This class docstring shows how to use sphinx and rst syntax</p>
+<p>The first line is brief explanation, which may be completed with 
+a longer one. For instance to discuss about its methods. The only
+method here is <a class="reference internal" href="#template.MainClass1.function1" title="template.MainClass1.function1"><code class="xref py py-func docutils literal"><span class="pre">function1()</span></code></a>&#8216;s. The main idea is to document
+the class and methods&#8217;s arguments with</p>
+<ul>
+<li><p class="first"><strong>parameters</strong>, <strong>types</strong>, <strong>return</strong> and <strong>return types</strong>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">:</span><span class="n">param</span> <span class="n">arg1</span><span class="p">:</span> <span class="n">description</span>
+<span class="p">:</span><span class="n">param</span> <span class="n">arg2</span><span class="p">:</span> <span class="n">description</span>
+<span class="p">:</span><span class="nb">type</span> <span class="n">arg1</span><span class="p">:</span> <span class="nb">type</span> <span class="n">description</span>
+<span class="p">:</span><span class="nb">type</span> <span class="n">arg1</span><span class="p">:</span> <span class="nb">type</span> <span class="n">description</span>
+<span class="p">:</span><span class="k">return</span><span class="p">:</span> <span class="k">return</span> <span class="n">description</span>
+<span class="p">:</span><span class="n">rtype</span><span class="p">:</span> <span class="n">the</span> <span class="k">return</span> <span class="nb">type</span> <span class="n">description</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">and to provide sections such as <strong>Example</strong> using the double commas syntax:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>:Example:
+
+followed by a blank line !
+</pre></div>
+</div>
+<p>which appears as follow:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Example:</th><td class="field-body"></td>
+</tr>
+</tbody>
+</table>
+<p>followed by a blank line</p>
+</li>
+<li><p class="first">Finally special sections such as <strong>See Also</strong>, <strong>Warnings</strong>, <strong>Notes</strong>
+use the sphinx syntax (<em>paragraph directives</em>):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">..</span> <span class="n">seealso</span><span class="p">::</span> <span class="n">blabla</span>
+<span class="o">..</span> <span class="n">warnings</span> <span class="n">also</span><span class="p">::</span> <span class="n">blabla</span>
+<span class="o">..</span> <span class="n">note</span><span class="p">::</span> <span class="n">blabla</span>
+<span class="o">..</span> <span class="n">todo</span><span class="p">::</span> <span class="n">blabla</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<dl class="last docutils">
+<dt>There are many other Info fields but they may be redundant:</dt>
+<dd><ul class="first last simple">
+<li>param, parameter, arg, argument, key, keyword: Description of a
+parameter.</li>
+<li>type: Type of a parameter.</li>
+<li>raises, raise, except, exception: That (and when) a specific
+exception is raised.</li>
+<li>var, ivar, cvar: Description of a variable.</li>
+<li>returns, return: Description of the return value.</li>
+<li>rtype: Return type.</li>
+</ul>
+</dd>
+</dl>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">There are many other directives such as versionadded, versionchanged,
+rubric, centered, ... See the sphinx documentation for more details.</p>
+</div>
+<p>Here below is the results of the <a class="reference internal" href="#template.MainClass1.function1" title="template.MainClass1.function1"><code class="xref py py-func docutils literal"><span class="pre">function1()</span></code></a> docstring.</p>
+<dl class="method">
+<dt id="template.MainClass1.function1">
+<code class="descname">function1</code><span class="sig-paren">(</span><em>arg1</em>, <em>arg2</em>, <em>arg3</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/template.html#MainClass1.function1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#template.MainClass1.function1" title="Permalink to this definition">¶</a></dt>
+<dd><p>returns (arg1 / arg2) + arg3</p>
+<p>This is a longer explanation, which may include math with latex syntax
+<span class="math">\(\alpha\)</span>.
+Then, you need to provide optional subsection in this order (just to be
+consistent and have a uniform documentation. Nothing prevent you to
+switch the order):</p>
+<blockquote>
+<div><ul class="simple">
+<li>parameters using <code class="docutils literal"><span class="pre">:param</span> <span class="pre">&lt;name&gt;:</span> <span class="pre">&lt;description&gt;</span></code></li>
+<li>type of the parameters <code class="docutils literal"><span class="pre">:type</span> <span class="pre">&lt;name&gt;:</span> <span class="pre">&lt;description&gt;</span></code></li>
+<li>returns using <code class="docutils literal"><span class="pre">:returns:</span> <span class="pre">&lt;description&gt;</span></code></li>
+<li>examples (doctest)</li>
+<li>seealso using <code class="docutils literal"><span class="pre">..</span> <span class="pre">seealso::</span> <span class="pre">text</span></code></li>
+<li>notes using <code class="docutils literal"><span class="pre">..</span> <span class="pre">note::</span> <span class="pre">text</span></code></li>
+<li>warning using <code class="docutils literal"><span class="pre">..</span> <span class="pre">warning::</span> <span class="pre">text</span></code></li>
+<li>todo <code class="docutils literal"><span class="pre">..</span> <span class="pre">todo::</span> <span class="pre">text</span></code></li>
+</ul>
+</div></blockquote>
+<dl class="docutils">
+<dt><strong>Advantages</strong>:</dt>
+<dd><ul class="first last simple">
+<li>Uses sphinx markups, which will certainly be improved in future
+version</li>
+<li>Nice HTML output with the See Also, Note, Warnings directives</li>
+</ul>
+</dd>
+<dt><strong>Drawbacks</strong>:</dt>
+<dd><ul class="first last simple">
+<li>Just looking at the docstring, the parameter, type and  return
+sections do not appear nicely</li>
+</ul>
+</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>arg1</strong> (<em>int, float,...</em>) &#8211; the first value</li>
+<li><strong>arg2</strong> (<em>int, float,...</em>) &#8211; the first value</li>
+<li><strong>arg3</strong> (<em>int, float,...</em>) &#8211; the first value</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">arg1/arg2 +arg3</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first">int, float</p>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Example:</th><td class="field-body"></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">template</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">MainClass1</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="o">.</span><span class="n">function1</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">2</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">can be useful to emphasize
+important feature</p>
+</div>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><code class="xref py py-class docutils literal"><span class="pre">MainClass2</span></code></p>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">arg2 must be non-zero.</p>
+</div>
+<div class="admonition-todo admonition" id="index-0">
+<p class="first admonition-title">Todo</p>
+<p class="last">check that arg2 is non zero.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<span class="target" id="module-MSOModel"></span><p>This module illustrates how to write your docstring in OpenAlea
+and other projects related to OpenAlea.</p>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
+<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
+<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Welcome to msomodel&#8217;s documentation!</a></li>
+<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to msomodel&#8217;s documentation!</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/code.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lotte Weerts.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+      |
+      <a href="_sources/code.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,41 @@
+.. msomodel documentation master file, created by
+   sphinx-quickstart on Mon Sep  5 18:05:24 2016.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+.. highlight:: c
+
+
+Contents
+====================================
+
+This is the documentaion of the MSOModel module. This documentation contains four sections:
+
+* :mod:`core`
+	.. automodule:: MSOModelModule.core
+* :mod:`test`
+	.. automodule:: MSOModelModule.test
+* :mod:`fancyPlot`
+	.. automodule:: MSOModelModule.fancyPlot
+
+Core documentation 
+====================================
+
+
+.. toctree::
+
+.. automodule:: MSOModelModule.core
+	:members:
+
+
+Test documentation 
+====================================
+
+.. automodule:: MSOModelModule.test
+	:members:
+
+FancyPlot documentation  
+====================================
+
+.. automodule:: MSOModelModule.fancyPlot
+	:members:

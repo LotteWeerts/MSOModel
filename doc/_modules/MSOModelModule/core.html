@@ -1,0 +1,1028 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>MSOModelModule.core &#8212; msomodel 1.0 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="msomodel 1.0 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for MSOModelModule.core</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;The core module contains the MSOModel class that runs the simulation.&quot;&quot;&quot;</span>
+
+<span class="n">__docformat__</span> <span class="o">=</span> <span class="s1">&#39;reStructuredText&#39;</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">gzip</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">getopt</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">memory_profiler</span> <span class="k">import</span> <span class="n">memory_usage</span>
+    <span class="n">mem_profiler_not_available</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Could not import memory_profiler, some profile functions may not work&#39;</span><span class="p">)</span>
+    <span class="n">mem_profiler_not_available</span> <span class="o">=</span> <span class="kc">True</span>
+
+
+<div class="viewcode-block" id="MSOModel"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel">[docs]</a><span class="k">class</span> <span class="nc">MSOModel</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This class contains the model of the MSO and methods to run simulations</span>
+
+<span class="sd">    The MSOModel is the main class that runs the simulation. See README.txt for instructions how to run it.</span>
+
+<span class="sd">    :param timesteps: The number of timesteps (in milliseconds) the simulation should run</span>
+<span class="sd">    :param dt: Stepsize of simulation (in ms)</span>
+<span class="sd">    :param vt: Threshold for voltage (theta v)</span>
+<span class="sd">    :param batchsize: The size of each batch (in milliseconds). For varying ITDs the batchsize determines how often the ITDs are changed.</span>
+<span class="sd">    :param input_neurons: Number of input neurons (layer 1)</span>
+<span class="sd">    :param MSO_neurons: Number of MSO neurons (layer 2)</span>
+<span class="sd">    :param T: The period of the input sound (i.e. determines the frequency)</span>
+<span class="sd">    :param storeData: Boolean that indicates whether or not simulation results should be stored</span>
+<span class="sd">    :param ITDoptions: An array of ITDs the simulation can choose from (set to e.g. [0.0] for constant ITD of 0.0)</span>
+<span class="sd">    :param path: Used for reloading model in a certain with :func:`MSOModel.loadLearnedModel()`, don&#39;t use yourself</span>
+<span class="sd">    :param delays: Used for reloading models with :func:`MSOModel.loadLearnedModel()`, don&#39;t use yourself</span>
+<span class="sd">    :param memorySavingMode: Determines the mode for memory saving. See note.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        Do not use memorySavingMode 0 or 1. These are only included for completeness (see appendix A). They are slower and take up more memory than memorySavingMode 2.</span>
+<span class="sd">    :type timesteps: int</span>
+<span class="sd">    :type batchsize: int</span>
+<span class="sd">    :type input_neurons: int</span>
+<span class="sd">    :type MSO_neurons: int</span>
+<span class="sd">    :type T: float</span>
+<span class="sd">    :type storeData: boolean</span>
+<span class="sd">    :type ITDoptions: array or int</span>
+<span class="sd">    :type dt: float</span>
+<span class="sd">    :type vt: float</span>
+<span class="sd">    :type path: string</span>
+<span class="sd">    :type delays: numpy array</span>
+<span class="sd">    :type memorySavingMode: 0, 1 or 2</span>
+
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># LIF parameters</span>
+    <span class="n">TAU_M</span> <span class="o">=</span> <span class="mf">0.100</span>       <span class="c1"># (ms)</span>
+    <span class="n">TAU_S</span> <span class="o">=</span> <span class="mf">0.100</span>       <span class="c1"># (ms)</span>
+
+    <span class="c1"># Delay parameters</span>
+    <span class="n">DELAY_MU</span> <span class="o">=</span> <span class="mf">7.0</span>      <span class="c1"># (ms)</span>
+    <span class="n">DELAY_SIGMA</span> <span class="o">=</span> <span class="mf">1.0</span>   <span class="c1"># 0.300 # (ms)</span>
+
+    <span class="c1"># Learning parameters</span>
+    <span class="n">TAU_LTP</span> <span class="o">=</span> <span class="mf">10.0</span>      <span class="c1"># (ms)</span>
+    <span class="n">TAU_LTD</span> <span class="o">=</span> <span class="mf">10.0</span>      <span class="c1"># (ms)</span>
+    <span class="n">A_LTP</span> <span class="o">=</span> <span class="mf">0.00100</span>
+    <span class="n">A_LTD</span> <span class="o">=</span> <span class="mf">0.00105</span>
+
+    <span class="n">SATURATION</span> <span class="o">=</span> <span class="mf">3.0</span>    <span class="c1"># Maximum weight</span>
+    <span class="n">REFRACTORY_PERIOD</span> <span class="o">=</span> <span class="mf">0.500</span>
+
+    <span class="n">ERROR</span> <span class="o">=</span> <span class="mf">0.00001</span>     <span class="c1"># Minimum value for mask of I and pre-trace</span>
+
+    <span class="n">STEP_DEGREES</span> <span class="o">=</span> <span class="mf">5.0</span>  <span class="c1"># Degrees (not radian)</span>
+    <span class="n">HEADSIZE</span> <span class="o">=</span> <span class="mf">0.1</span>      <span class="c1"># Meters</span>
+    <span class="n">SOUNDSPEED</span> <span class="o">=</span> <span class="mf">343.0</span>  <span class="c1"># Meters / second</span>
+
+    <span class="k">if</span> <span class="n">A_LTD</span> <span class="o">&lt;=</span> <span class="n">A_LTP</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;For balanced learning, A_LTD (</span><span class="si">{}</span><span class="s1">) must be higher than A_LTP (</span><span class="si">{}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">A_LTP</span><span class="p">,</span> <span class="n">A_LTD</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timesteps</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">,</span> <span class="n">vt</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">,</span> <span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">storeData</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                 <span class="n">ITDoptions</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">],</span> <span class="n">memorySavingMode</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">delays</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span>    <span class="c1"># Shortcut to class variables</span>
+
+        <span class="c1"># Check validity of input values</span>
+        <span class="k">if</span> <span class="n">timesteps</span> <span class="o">%</span> <span class="n">batchsize</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;batchsize (</span><span class="si">{}</span><span class="s1">) has to be a multiple of the given number of timesteps (</span><span class="si">{}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">batchsize</span><span class="p">,</span> <span class="n">timesteps</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">input_neurons</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;input_neurons (</span><span class="si">{}</span><span class="s1">) must be an even number &#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">input_neurons</span><span class="p">))</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">batchsize</span> <span class="o">/</span> <span class="n">dt</span><span class="p">)</span> <span class="o">%</span> <span class="p">(</span><span class="n">T</span> <span class="o">/</span> <span class="n">dt</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.000001</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;batchsize (</span><span class="si">{}</span><span class="s1">) has to be a multiple of the signal period (T = </span><span class="si">{}</span><span class="s1">)&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">batchsize</span><span class="p">,</span> <span class="n">T</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">batchsize</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">ERROR</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">A_LTP</span><span class="p">)</span><span class="o">*</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_LTP</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Batchsize must be at least </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">ERROR</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">A_LTP</span><span class="p">)</span><span class="o">*</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_LTP</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="n">parallel</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Parallel (</span><span class="si">{}</span><span class="s1">) must be at least 1&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">parallel</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">memorySavingMode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;memorySavingMode (</span><span class="si">{}</span><span class="s1">) must be either 0, 1, or 2&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">batchsize</span><span class="p">,</span> <span class="n">timesteps</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">memorySavingMode</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;MemorySavingMode 0 and 1 are depricated, please use memeroySavingMode 2&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Set simulation parameters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timesteps</span> <span class="o">=</span> <span class="n">timesteps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batchsize</span> <span class="o">=</span> <span class="n">batchsize</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vt</span> <span class="o">=</span> <span class="n">vt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span> <span class="o">=</span> <span class="n">input_neurons</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">MSO_neurons</span> <span class="o">=</span> <span class="n">MSO_neurons</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="n">dt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storeData</span> <span class="o">=</span> <span class="n">storeData</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ITD</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T</span> <span class="o">=</span> <span class="n">T</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ITDoptions</span> <span class="o">=</span> <span class="n">ITDoptions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span> <span class="o">=</span> <span class="n">memorySavingMode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parallel</span> <span class="o">=</span> <span class="n">parallel</span>
+
+        <span class="c1"># Directory where results will be stored</span>
+        <span class="k">if</span> <span class="n">storeData</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+                <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">Creating directory...&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">createDirectory</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">storeParameters</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">createDirectory</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">storeParameters</span><span class="p">()</span>
+            <span class="nb">print</span> <span class="s2">&quot;Results will be stored in: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+
+        <span class="c1"># Update formulas</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dv</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">v</span><span class="p">,</span> <span class="n">I</span><span class="p">:</span> <span class="o">-</span><span class="n">v</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_M</span> <span class="o">+</span> <span class="n">I</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dltp</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_LTP</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dltd</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">y</span><span class="p">:</span> <span class="o">-</span><span class="n">y</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_LTD</span>
+
+        <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">Allocating data...&quot;</span>
+
+        <span class="c1"># If no delays are included (i.e. model is not preloaded), generate delays</span>
+        <span class="k">if</span> <span class="n">delays</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="c1"># Generate delays and round them to dt</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delays</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">DELAY_MU</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">DELAY_SIGMA</span><span class="p">,</span> <span class="p">(</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">))</span><span class="o">/</span><span class="n">dt</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">*</span><span class="n">dt</span>
+
+            <span class="k">if</span> <span class="n">storeData</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/delays.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">delays</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">outfile</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delays</span> <span class="o">=</span> <span class="n">delays</span>
+
+        <span class="c1"># Transform delays into number of timesteps rather than milliseconds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">delays</span><span class="o">/</span><span class="n">dt</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">))</span>
+
+        <span class="c1"># Transforms batchsize in number of timesteps rather than milliseconds</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">batchsize</span><span class="o">/</span><span class="n">dt</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">t_range</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
+
+        <span class="c1"># Allocate space for fire handling and precomputations (see appendix A)</span>
+        <span class="c1"># MemorySavingMode 0:</span>
+        <span class="c1">#     Precompute I and presynaptic trace values and store spikes in an m x n xbatchsize array</span>
+        <span class="c1"># MemorySavingMode 1:</span>
+        <span class="c1">#      Store spikes in an m x n x batchsize array</span>
+        <span class="c1"># MemorySavingMode 2:</span>
+        <span class="c1">#      Store spikes in an 2 x batchsize array, where the first and second array represent</span>
+        <span class="c1">#      a pre-post synaptic spike pair that arrives at a particular time in batchsize</span>
+        <span class="k">if</span> <span class="n">memorySavingMode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">Ifj</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">,</span> <span class="n">tfj</span><span class="p">:</span> <span class="p">(</span><span class="n">t</span> <span class="o">&gt;=</span> <span class="n">tfj</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">TAU_S</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">tfj</span><span class="p">)</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">TAU_S</span><span class="p">)</span>
+            <span class="n">I_cutoff</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">ERROR</span><span class="o">/</span><span class="p">(</span><span class="mi">1</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_S</span><span class="p">))</span><span class="o">*</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_S</span><span class="p">)</span><span class="o">/</span><span class="n">dt</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">I_mask_overlay</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">I_cutoff</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">REFRACTORY_PERIOD</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">I_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">Ifj</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">t_range</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">I_mask_overlay</span><span class="p">]])</span>
+
+            <span class="n">pretrace</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">,</span> <span class="n">tfj</span><span class="p">:</span> <span class="p">(</span><span class="n">t</span> <span class="o">&gt;=</span> <span class="n">tfj</span><span class="p">)</span><span class="o">*</span><span class="n">c</span><span class="o">.</span><span class="n">A_LTP</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">tfj</span><span class="p">)</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">TAU_LTP</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask_overlay</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">((</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">ERROR</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">A_LTP</span><span class="p">)</span><span class="o">*</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_LTP</span><span class="p">)</span><span class="o">/</span><span class="n">dt</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">pretrace</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">t_range</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask_overlay</span><span class="p">]])</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">,</span>
+                               <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">I_mask_overlay</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">,</span>
+                                      <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask_overlay</span><span class="p">))</span>
+
+        <span class="k">elif</span> <span class="n">memorySavingMode</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dI</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">I</span><span class="p">:</span> <span class="o">-</span><span class="n">I</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_S</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">))</span>
+
+        <span class="k">elif</span> <span class="n">memorySavingMode</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dI</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">I</span><span class="p">:</span> <span class="o">-</span><span class="n">I</span><span class="o">/</span><span class="n">c</span><span class="o">.</span><span class="n">TAU_S</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span> <span class="o">=</span> <span class="p">[[[[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">)],</span>
+                                    <span class="p">[[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">)]]</span>
+                                    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">)]</span>
+
+        <span class="c1"># Data allocation general simulation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prevFirings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">input_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_spike</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">REFRACTORY_PERIOD</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">MSO_neurons</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">MSO_neurons</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resume</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="c1"># Set P-values for left and right ear</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setFrequency</span><span class="p">(</span><span class="n">T</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setITD</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">testMode</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">parallel</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s1">&#39;Parallel &gt; 1 is not thoroughly tested, race conditions may result in unpredictable behaviour &#39;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mso_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MSO_neurons</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">)</span>
+
+        <span class="nb">print</span> <span class="s2">&quot;Initialisation succeeded&quot;</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="MSOModel.loadLearnedModel"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.loadLearnedModel">[docs]</a>    <span class="k">def</span> <span class="nf">loadLearnedModel</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">folder</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Class method that can be used to load a pre-existing model and test or run the model.</span>
+
+<span class="sd">        :param folder: Path to the folder where the model is stored</span>
+<span class="sd">        :param t: Time identifier of the weight matrix that should be loaded, i.e. if the filename is &#39;19999_w.json.gz&#39; the t value is 19999</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            The value for t is the time step, not the time in milliseconds. If you would like</span>
+<span class="sd">            to reload a simulation after 500 ms for a simulation with dt = 0.005, you compute the correct weight matrix as follows:</span>
+
+<span class="sd">                500/0.005*1000 = 100000000</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">path</span> <span class="o">=</span> <span class="n">folder</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+        <span class="c1"># Load parameters</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/parameters.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">classParams</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="c1"># Load simulation settings</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/simulation_settings.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">objParams</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="c1"># Load delays</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/delays.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">delays</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="c1"># For depricated simulations that did not have the memorySavingMode</span>
+        <span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;memorySavingMode&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>
+
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">cls</span><span class="p">(</span><span class="n">timesteps</span><span class="o">=</span><span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;timesteps&#39;</span><span class="p">],</span> <span class="n">batchsize</span><span class="o">=</span><span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;batchsize&#39;</span><span class="p">],</span> <span class="n">vt</span><span class="o">=</span><span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;vt&#39;</span><span class="p">],</span>
+                  <span class="n">input_neurons</span><span class="o">=</span><span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;input_neurons&#39;</span><span class="p">],</span> <span class="n">MSO_neurons</span><span class="o">=</span><span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;MSO_neurons&#39;</span><span class="p">],</span>
+                  <span class="n">dt</span><span class="o">=</span><span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;dt&#39;</span><span class="p">],</span> <span class="n">storeData</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">folder</span><span class="p">,</span> <span class="n">T</span><span class="o">=</span><span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;T&#39;</span><span class="p">],</span>
+                  <span class="n">delays</span><span class="o">=</span><span class="n">delays</span><span class="p">,</span> <span class="n">memorySavingMode</span><span class="o">=</span><span class="n">objParams</span><span class="p">[</span><span class="s1">&#39;memorySavingMode&#39;</span><span class="p">])</span>
+
+        <span class="c1"># Set all class and object values of the loaded simulation to the new one</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="n">classParams</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="n">objParams</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+        <span class="c1"># Set weights to the data of the latest timestep</span>
+        <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/data_per_batch/</span><span class="si">{}</span><span class="s1">_w.json.gz&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">sim</span><span class="o">.</span><span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="c1"># Set resume variable from which the simulation is supposed to continue</span>
+        <span class="n">sim</span><span class="o">.</span><span class="n">resume</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">t</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">sim</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sim</span></div>
+
+<div class="viewcode-block" id="MSOModel.computeITD"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.computeITD">[docs]</a>    <span class="k">def</span> <span class="nf">computeITD</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">angle</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Computes ITD for a given angle (in degrees)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">angle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">HEADSIZE</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">SOUNDSPEED</span><span class="p">)</span><span class="o">*</span><span class="mi">1000</span><span class="o">*</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">angle</span><span class="p">)</span> <span class="o">+</span> <span class="n">angle</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MSOModel.setFrequency"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.setFrequency">[docs]</a>    <span class="k">def</span> <span class="nf">setFrequency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">T</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Resets P-values for the given period T of the input sound</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">T</span> <span class="o">=</span> <span class="n">T</span>           <span class="c1"># (ms)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">=</span> <span class="mf">0.08</span> <span class="o">+</span> <span class="n">T</span><span class="o">*</span><span class="mf">0.07</span>     <span class="c1"># T*0.2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">MFR</span> <span class="o">=</span> <span class="mf">0.150</span>     <span class="c1"># 1.0/T*0.2  # milliHertz</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mrange</span> <span class="o">=</span> <span class="mi">100</span>
+
+        <span class="c1"># Generate p_values</span>
+        <span class="n">st_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">t_range</span><span class="p">[:</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">))]</span>
+        <span class="n">p_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">P</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">st_range</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">p_values_left</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">p_val</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p_values_right</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">p_val</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+
+        <span class="c1"># Reset to ITD</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ITD</span><span class="p">:</span>
+            <span class="n">ITD</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ITD</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ITD</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ITD</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setITD</span><span class="p">(</span><span class="n">ITD</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MSOModel.setITD"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.setITD">[docs]</a>    <span class="k">def</span> <span class="nf">setITD</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ITD</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Moves precomputed P-values such that a particular ITD is imposed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">ITDdiff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ITD</span> <span class="o">-</span> <span class="n">ITD</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p_values_right</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_values_right</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">ITDdiff</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ITD</span> <span class="o">=</span> <span class="n">ITD</span></div>
+
+<div class="viewcode-block" id="MSOModel.storeParameters"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.storeParameters">[docs]</a>    <span class="k">def</span> <span class="nf">storeParameters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Stores class and object parameters of this particular simulation</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Get all class variables</span>
+        <span class="n">variables</span> <span class="o">=</span> <span class="p">[</span><span class="n">attr</span> <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">callable</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">attr</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;__&quot;</span><span class="p">)]</span>
+        <span class="n">class_vars</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">([(</span><span class="n">var</span><span class="p">,</span> <span class="nb">vars</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="p">)[</span><span class="n">var</span><span class="p">])</span> <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">variables</span><span class="p">])</span>
+
+        <span class="c1"># Get all simulation variables</span>
+        <span class="n">obj_vars</span> <span class="o">=</span> <span class="nb">vars</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="c1"># Save delays</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/parameters.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">class_vars</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span>
+
+        <span class="c1"># Save delays</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/simulation_settings.txt&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj_vars</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MSOModel.createDirectory"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.createDirectory">[docs]</a>    <span class="k">def</span> <span class="nf">createDirectory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Creates directory structure in which the simulation is going to be stored</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Create file and directory</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">:</span>
+            <span class="n">directory</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">date</span><span class="o">.</span><span class="n">today</span><span class="p">())</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">time</span><span class="p">())[:</span><span class="o">-</span><span class="mi">7</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">)</span>  <span class="c1"># Give similar simulations a unique folder</span>
+
+            <span class="n">filename</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">directory</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/data_per_batch&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">path</span></div>
+
+<div class="viewcode-block" id="MSOModel.P"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.P">[docs]</a>    <span class="k">def</span> <span class="nf">P</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">delay</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Computes P-value for a particular time t (in ms) and delay (in ms)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MFR</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">))</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">m</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="n">delay</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+                                                                       <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">mrange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">mrange</span><span class="p">)])</span></div>
+
+<div class="viewcode-block" id="MSOModel.batchReset"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.batchReset">[docs]</a>    <span class="k">def</span> <span class="nf">batchReset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">firings</span><span class="p">,</span> <span class="n">batch_I</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">batch_pretrace</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Resets simulation to prepare it for a new batch of firings (np.array).</span>
+<span class="sd">            It precomputes all required values (it depends on the memorySavingMode which values are precomputed and which are not)</span>
+<span class="sd">            and initiates **delayed_firings**, which contains all the produced spikes such that it is readable for the update function</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Reset I</span>
+            <span class="n">overlay</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">overlay</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:(</span><span class="bp">self</span><span class="o">.</span><span class="n">I_mask_overlay</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">)]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">I_mask_overlay</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">):]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">overlay</span>
+
+            <span class="c1"># Reset pretrace</span>
+            <span class="n">overlay</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">overlay</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:(</span><span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask_overlay</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">)]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask_overlay</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">):]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">overlay</span>
+
+            <span class="c1"># Reset delayed firings</span>
+            <span class="n">overlay</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">overlay</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">:]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">overlay</span>
+
+            <span class="k">for</span> <span class="n">neuron</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MSO_neurons</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">]:(</span><span class="n">firings</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">])]</span> <span class="o">+=</span> <span class="n">firings</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">]:(</span><span class="n">batch_I</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">])]</span> <span class="o">+=</span> <span class="n">batch_I</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">]:(</span><span class="n">batch_pretrace</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">])]</span> <span class="o">+=</span> <span class="n">batch_pretrace</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+
+            <span class="c1"># Reset delayed firings</span>
+            <span class="n">overlay</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">overlay</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">:]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">overlay</span>
+
+            <span class="k">for</span> <span class="n">neuron</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MSO_neurons</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">]:(</span><span class="n">firings</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">i</span><span class="p">])]</span> <span class="o">+=</span> <span class="n">firings</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+
+            <span class="n">overlay</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">:])</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">)]</span>
+            <span class="n">timerange</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span> <span class="o">=</span> <span class="p">[([[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">timerange</span><span class="p">],</span> <span class="p">[[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">timerange</span><span class="p">])</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">)]</span>
+
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">][:</span><span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlay</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">1</span><span class="p">][:</span><span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlay</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+
+            <span class="p">(</span><span class="n">js</span><span class="p">,</span> <span class="n">t_firings</span><span class="p">)</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">firings</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">neuron</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mso_idx</span><span class="p">[</span><span class="n">x</span><span class="p">])):</span>
+                    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">t_firings</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">t</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">]]]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">neuron</span><span class="p">]</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">x</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="n">t</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">delays_dt</span><span class="p">[</span><span class="n">neuron</span><span class="p">,</span> <span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">]]]</span> <span class="o">+=</span> <span class="p">[</span><span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span>
+
+        <span class="c1"># Retrieve firings of the past s.t. a refractory period still holds when moving from one batch to another</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prevFirings</span> <span class="o">=</span> <span class="n">firings</span><span class="p">[:,</span> <span class="o">-</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">REFRACTORY_PERIOD</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)]</span></div>
+
+<div class="viewcode-block" id="MSOModel.generateAutoITD"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.generateAutoITD">[docs]</a>    <span class="k">def</span> <span class="nf">generateAutoITD</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nr_batches</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Method used to compute a sequence of ITDs according to the sound localisation task</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">step_degree</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">STEP_DEGREES</span>
+        <span class="n">theta_options</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="mi">45</span><span class="p">,</span> <span class="mi">45</span> <span class="o">+</span> <span class="n">step_degree</span><span class="p">,</span> <span class="n">step_degree</span><span class="p">)</span>
+
+        <span class="n">theta_head</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">theta_options</span><span class="p">)</span>
+        <span class="n">theta_sound</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">theta_options</span><span class="p">)</span>
+        <span class="n">thetas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nr_batches</span><span class="p">)</span>
+        <span class="n">thetas</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">theta_head</span> <span class="o">-</span> <span class="n">theta_sound</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nr_batches</span><span class="p">):</span>
+            <span class="n">theta_head</span> <span class="o">+=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">thetas</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span><span class="o">*</span><span class="n">step_degree</span>
+            <span class="k">if</span> <span class="n">thetas</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">theta_sound</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">theta_options</span><span class="p">)</span>
+            <span class="n">thetas</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">theta_head</span> <span class="o">-</span> <span class="n">theta_sound</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">computeITD</span><span class="p">(</span><span class="n">thetas</span><span class="p">)</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span></div>
+
+<div class="viewcode-block" id="MSOModel.run"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Core method that runs the simulation for the initialised parameters</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">nr_batches</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(((</span><span class="bp">self</span><span class="o">.</span><span class="n">timesteps</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ITDoptions</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># Use sound localisation task to generate input</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resume</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">ITDs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generateAutoITD</span><span class="p">(</span><span class="n">nr_batches</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/itds.json.gz&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">ITDs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">readlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]))</span>
+                <span class="nb">print</span> <span class="n">ITDs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Generate random sequence of the given set of ITDs</span>
+            <span class="n">ITDs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ITDoptions</span><span class="p">,</span> <span class="n">nr_batches</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">storeData</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/itds.json.gz&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">ITDs</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">outfile</span><span class="p">)</span>
+
+        <span class="n">storeProcesses</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">preTrain</span> <span class="o">=</span> <span class="mi">5</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">testMode</span><span class="p">:</span>
+            <span class="n">preTrain</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">resume</span> <span class="o">-</span> <span class="n">preTrain</span><span class="p">,</span> <span class="n">nr_batches</span><span class="p">):</span>
+
+            <span class="nb">print</span> <span class="s2">&quot;Batch </span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">nr_batches</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">batch</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">resume</span><span class="p">:</span>
+                <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">Warming up before learning resumes&quot;</span>
+                <span class="n">learning</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">setITD</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">learning</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">ITD selected: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ITDs</span><span class="p">[</span><span class="n">batch</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">setITD</span><span class="p">(</span><span class="n">ITDs</span><span class="p">[</span><span class="n">batch</span><span class="p">])</span>
+
+            <span class="n">offset</span> <span class="o">=</span> <span class="n">batch</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span><span class="p">:</span>    <span class="c1"># memorySavingMode is 1 or 2</span>
+                <span class="n">firings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generateFirings</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">batchReset</span><span class="p">(</span><span class="n">firings</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">firings</span><span class="p">,</span> <span class="n">batch_I</span><span class="p">,</span> <span class="n">batch_pretrace</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generateFirings</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">batchReset</span><span class="p">(</span><span class="n">firings</span><span class="p">,</span> <span class="n">batch_I</span><span class="p">,</span> <span class="n">batch_pretrace</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">processes</span> <span class="o">=</span> <span class="p">[]</span>
+
+                <span class="n">queue</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
+                <span class="n">processes</span> <span class="o">=</span> <span class="p">[</span><span class="n">multiprocessing</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">runBatch</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">learning</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">)]</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+                    <span class="n">p</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+                <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">)]</span>
+                <span class="n">queue</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+                <span class="n">queue</span><span class="o">.</span><span class="n">join_thread</span><span class="p">()</span>
+
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">processes</span><span class="p">:</span>
+                    <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+
+                <span class="nb">print</span> <span class="s2">&quot;Storing Results&quot;</span>
+
+                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">):</span>
+                    <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">lastspike</span><span class="p">,</span> <span class="n">v_spikes</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">pretrace</span><span class="p">,</span> <span class="n">posttrace</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mso_idx</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_spike</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="p">,</span> <span class="n">lastspike</span><span class="p">,</span> <span class="n">v_spikes</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">I</span><span class="p">,</span> <span class="n">pretrace</span><span class="p">,</span> <span class="n">posttrace</span><span class="p">,</span> <span class="n">w</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">updateLowMemory</span><span class="p">(</span><span class="n">parallel_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">t</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="n">learning</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">):</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">parallel_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">t</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="n">learning</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">storeData</span> <span class="ow">and</span> <span class="n">batch</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resume</span><span class="p">:</span>
+                <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">Storing data...&quot;</span>
+                <span class="n">p</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">storeBatch</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="o">.</span><span class="n">copy</span><span class="p">()))</span>  <span class="c1"># , self.v_spikes.copy()))</span>
+                <span class="n">p</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+                <span class="n">storeProcesses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">storeProcesses</span><span class="p">:</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="MSOModel.runBatch"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.runBatch">[docs]</a>    <span class="k">def</span> <span class="nf">runBatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">learning</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">            Performs update for a parallel process</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mso_idx</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">updateLowMemory</span><span class="p">(</span><span class="n">parallel_id</span><span class="o">=</span><span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">t</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="n">learning</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">parallel_id</span><span class="o">=</span><span class="n">i</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="n">t</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">offset</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="n">learning</span><span class="p">)</span>
+
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_spike</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">data</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="MSOModel.storeBatch"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.storeBatch">[docs]</a>    <span class="k">def</span> <span class="nf">storeBatch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">v_spikes</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Stores weights of timestep t</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">/data_per_batch/</span><span class="si">{}</span><span class="s1">_w.json.gz&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="n">batch</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">outfile</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">outfile</span><span class="p">)</span>
+        <span class="c1">#with gzip.open(&#39;{}/data_per_batch/{}_vspikes.json.gz&#39;.format(self.path, t + batch*self.batchsize_dt), &#39;w&#39;) as outfile:</span>
+        <span class="c1">#    json.dump(v_spikes.tolist(), outfile)</span>
+        <span class="k">del</span> <span class="n">w</span>     <span class="c1"># Garbage collection</span>
+        <span class="k">return</span></div>
+
+<div class="viewcode-block" id="MSOModel.reset"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.reset">[docs]</a>    <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Used to reset all parameters, for example when the model is tested</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prevFirings</span> <span class="o">*=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span> <span class="o">*=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span> <span class="o">=</span> <span class="p">[[[[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">)],</span>
+                                <span class="p">[[]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxDelay</span><span class="p">)]]</span>
+                                <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parallel</span><span class="p">)]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">*=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_spikes</span> <span class="o">*=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_spike</span> <span class="o">*=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">I</span> <span class="o">*=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span> <span class="o">*=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span> <span class="o">*=</span> <span class="mi">0</span></div>
+
+<div class="viewcode-block" id="MSOModel.test"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.test">[docs]</a>    <span class="k">def</span> <span class="nf">test</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timesteps</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ITDs</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Similar as run(), but for testing purposes. Runs for the given number of timesteps (in ms)</span>
+<span class="sd">            for the ITD it was set to (use :func:`setITD` for this purpose) or chooses a random</span>
+<span class="sd">            ITD from the given set of ITDs. Returns all spikes in a [mso_neurons x (timesteps/dt)]</span>
+<span class="sd">            array</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">timesteps</span> <span class="ow">and</span> <span class="n">ITDs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;The paramaters timesteps and ITDs cannot both be set to a value&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">ITDs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+            <span class="n">nr_batches</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ITDs</span><span class="p">)</span>
+            <span class="n">timesteps_dt</span> <span class="o">=</span> <span class="n">nr_batches</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">timesteps</span><span class="p">:</span>
+                <span class="n">timesteps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize</span>
+            <span class="n">timesteps_dt</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">timesteps</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
+            <span class="n">nr_batches</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">timesteps_dt</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">)</span>
+
+        <span class="n">v_spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">MSO_neurons</span><span class="p">,</span> <span class="n">timesteps_dt</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nr_batches</span><span class="p">):</span>
+
+            <span class="nb">print</span> <span class="s2">&quot;Batch </span><span class="si">{}</span><span class="s2">/</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">nr_batches</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">ITDs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">False</span><span class="p">:</span>
+                <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">ITD selected:</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ITDs</span><span class="p">[</span><span class="n">batch</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">setITD</span><span class="p">(</span><span class="n">ITDs</span><span class="p">[</span><span class="n">batch</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span><span class="p">:</span>
+                <span class="n">firings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generateFirings</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">batchReset</span><span class="p">(</span><span class="n">firings</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">firings</span><span class="p">,</span> <span class="n">batch_I</span><span class="p">,</span> <span class="n">batch_pretrace</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generateFirings</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">batchReset</span><span class="p">(</span><span class="n">firings</span><span class="p">,</span> <span class="n">batch_I</span><span class="p">,</span> <span class="n">batch_pretrace</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">updateLowMemory</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="n">t</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">batch</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="n">learning</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">t</span><span class="o">=</span><span class="n">t</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="n">batch</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="n">learning</span><span class="p">)</span>
+
+            <span class="n">v_spikes</span><span class="p">[:,</span> <span class="n">batch</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">:(</span><span class="n">batch</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_spikes</span><span class="p">[:,</span> <span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">v_spikes</span></div>
+
+<div class="viewcode-block" id="MSOModel.updateLowMemory"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.updateLowMemory">[docs]</a>    <span class="k">def</span> <span class="nf">updateLowMemory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">parallel_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">It</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Performs one time step in the simulation, used for low memory simulations</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mso_idx</span><span class="p">[</span><span class="n">parallel_id</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">It</span><span class="p">:</span>
+            <span class="n">It</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span>    <span class="c1"># Shortcut to class variables</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">presynaptic_spikes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:,</span> <span class="n">t</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">presynaptic_spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">idx</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">))</span>
+            <span class="n">presynaptic_spikes</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">parallel_id</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">t</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">parallel_id</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="n">t</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+        <span class="c1"># Update LIF neuron</span>
+        <span class="n">refrac</span> <span class="o">=</span> <span class="p">((</span><span class="n">t</span> <span class="o">+</span> <span class="n">offset</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_spike</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">REFRACTORY_PERIOD</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">refrac</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">refrac</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">euler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="p">[</span><span class="n">It</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
+
+        <span class="n">postsynaptic_spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MSO_neurons</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">postsynaptic_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">vt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">postsynaptic_spikes</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_spike</span><span class="p">[</span><span class="n">postsynaptic_spikes</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="n">offset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">postsynaptic_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">euler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dI</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="p">[],</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span> <span class="o">+</span> <span class="n">presynaptic_spikes</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">c</span><span class="o">.</span><span class="n">TAU_S</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">learning</span><span class="p">:</span>
+
+            <span class="c1"># Output trace</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">euler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dltp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:],</span> <span class="p">[],</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span> <span class="o">+</span> <span class="n">presynaptic_spikes</span><span class="o">*</span><span class="n">c</span><span class="o">.</span><span class="n">A_LTP</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">euler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dltd</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="p">[],</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span> <span class="o">+</span> <span class="n">postsynaptic_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">*</span><span class="n">c</span><span class="o">.</span><span class="n">A_LTD</span>  <span class="c1"># *self.u</span>
+
+            <span class="c1"># Update synapses</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span><span class="o">*</span><span class="n">postsynaptic_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="n">presynaptic_spikes</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]))</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">SATURATION</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MSOModel.update"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.update">[docs]</a>    <span class="k">def</span> <span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">parallel_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">It</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">learning</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Performs one time step in the simulation, high memory usage (assumes</span>
+<span class="sd">            pre-computed I and pretrace values )</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mso_idx</span><span class="p">[</span><span class="n">parallel_id</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">It</span><span class="p">:</span>
+            <span class="n">It</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">I</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:,</span> <span class="n">t</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span>    <span class="c1"># Shortcut to class variables</span>
+
+        <span class="c1"># Update LIF neuron</span>
+        <span class="n">refrac</span> <span class="o">=</span> <span class="p">((</span><span class="n">t</span> <span class="o">+</span> <span class="n">offset</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_spike</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">REFRACTORY_PERIOD</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">refrac</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">refrac</span><span class="p">)</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">euler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="p">[</span><span class="n">It</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span>
+
+        <span class="n">postsynaptic_spikes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">MSO_neurons</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">postsynaptic_spikes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">vt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">[</span><span class="n">postsynaptic_spikes</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_spike</span><span class="p">[</span><span class="n">postsynaptic_spikes</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span> <span class="o">+</span> <span class="n">offset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">postsynaptic_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">learning</span><span class="p">:</span>
+            <span class="n">spikes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delayed_firings</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:,</span> <span class="n">t</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+            <span class="c1"># Output trace</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">euler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dltd</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="p">[],</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span> <span class="o">+</span> <span class="n">postsynaptic_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">*</span><span class="n">c</span><span class="o">.</span><span class="n">A_LTD</span>  <span class="c1"># *self.u</span>
+
+            <span class="c1"># Update synapses</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">+=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pretrace</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:,</span> <span class="n">t</span><span class="p">]</span><span class="o">*</span><span class="n">postsynaptic_spikes</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">-</span> <span class="p">(</span><span class="n">spikes</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">posttrace</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]))</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">SATURATION</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MSOModel.generateFirings"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.generateFirings">[docs]</a>    <span class="k">def</span> <span class="nf">generateFirings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Generates firings for a single batch. Returns an n x batchsize array whose entries</span>
+<span class="sd">            indicate whether or not neuron n fired at time t. Incorporates refractory period.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">batchsize_dt</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">input_neurons</span><span class="p">,</span> <span class="n">refractory_period</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">batchsize_dt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_neurons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">REFRACTORY_PERIOD</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span><span class="p">:</span>
+            <span class="n">batch_I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">input_neurons</span><span class="p">,</span> <span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">I_mask_overlay</span><span class="p">))</span>
+            <span class="n">batch_pretrace</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">input_neurons</span><span class="p">,</span> <span class="n">batchsize_dt</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask_overlay</span><span class="p">))</span>
+        <span class="n">batch_firings</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">input_neurons</span><span class="p">,</span> <span class="n">batchsize_dt</span><span class="p">))</span>
+
+        <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">input_neurons</span><span class="p">)</span>
+        <span class="n">batch_firings</span><span class="p">[:</span><span class="n">i</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_values_left</span><span class="o">*</span><span class="n">dt</span> <span class="o">&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">batchsize_dt</span><span class="p">)</span>
+        <span class="n">batch_firings</span><span class="p">[</span><span class="n">i</span><span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_values_right</span><span class="o">*</span><span class="n">dt</span> <span class="o">&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">batchsize_dt</span><span class="p">)</span>
+
+        <span class="p">(</span><span class="n">js</span><span class="p">,</span> <span class="n">t_firings</span><span class="p">)</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">batch_firings</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="c1"># Add refractory period to generated spikes</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span><span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_firings</span><span class="p">)):</span>
+
+            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">!=</span> <span class="n">js</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prevFirings</span><span class="p">[</span><span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">batch_firings</span><span class="p">[</span><span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">t_firings</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># This firing was deactivated in a previous run</span>
+            <span class="k">if</span> <span class="n">batch_firings</span><span class="p">[</span><span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">t_firings</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span><span class="p">:</span>
+                <span class="n">batch_I</span><span class="p">[</span><span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="p">(</span><span class="n">t_firings</span><span class="p">[</span><span class="n">i</span><span class="p">]):(</span><span class="n">t_firings</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">I_mask_overlay</span><span class="p">)]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">I_mask</span>
+                <span class="n">batch_pretrace</span><span class="p">[</span><span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="p">(</span><span class="n">t_firings</span><span class="p">[</span><span class="n">i</span><span class="p">]):(</span><span class="n">t_firings</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask_overlay</span><span class="p">)]</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pretrace_mask</span>
+
+            <span class="c1"># Remove potential firings within refractory period</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">while</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">t_firings</span><span class="p">)</span> <span class="ow">and</span> <span class="n">js</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">==</span> <span class="n">js</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">and</span> <span class="n">t_firings</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">-</span> <span class="n">t_firings</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">refractory_period</span> <span class="o">/</span> <span class="n">dt</span><span class="p">):</span>
+                <span class="n">batch_firings</span><span class="p">[</span><span class="n">js</span><span class="p">[</span><span class="n">n</span><span class="p">],</span> <span class="n">t_firings</span><span class="p">[</span><span class="n">n</span><span class="p">]]</span> <span class="o">=</span> <span class="mf">0.0</span>
+                <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">memorySavingMode</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">batch_firings</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">batch_firings</span><span class="p">,</span> <span class="n">batch_I</span><span class="p">,</span> <span class="n">batch_pretrace</span></div>
+
+<div class="viewcode-block" id="MSOModel.euler"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.MSOModel.euler">[docs]</a>    <span class="k">def</span> <span class="nf">euler</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">            Computes the euler integration of a given f with input valus x and args args</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">dt</span><span class="o">*</span><span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../index.html#MSOModelModule.core.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">():</span>
+
+    <span class="sd">&quot;&quot;&quot; Can be used to run a simulation from the shell &quot;&quot;&quot;</span>
+
+    <span class="n">storeData</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">memorySavingModeFlag</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">parallel</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">batchmemprofile</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">msomemprofile</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">speedtest</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">speedtestmso</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">opts</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="n">getopt</span><span class="o">.</span><span class="n">getopt</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="s2">&quot;ho:v&quot;</span><span class="p">,</span>
+                                   <span class="p">[</span><span class="s2">&quot;timesteps=&quot;</span><span class="p">,</span> <span class="s2">&quot;batchsize=&quot;</span><span class="p">,</span> <span class="s2">&quot;vt=&quot;</span><span class="p">,</span> <span class="s2">&quot;input_neurons=&quot;</span><span class="p">,</span> <span class="s2">&quot;MSO_neurons=&quot;</span><span class="p">,</span> <span class="s2">&quot;dt=&quot;</span><span class="p">,</span> <span class="s2">&quot;storeData&quot;</span><span class="p">,</span>
+                                    <span class="s2">&quot;memorySavingMode=&quot;</span><span class="p">,</span> <span class="s2">&quot;ITDoptions=&quot;</span><span class="p">,</span> <span class="s2">&quot;speedTestMSO&quot;</span><span class="p">,</span> <span class="s2">&quot;parallel=&quot;</span><span class="p">,</span> <span class="s2">&quot;T=&quot;</span><span class="p">,</span> <span class="s2">&quot;profileBatch&quot;</span><span class="p">,</span> <span class="s2">&quot;profileMSOneurons&quot;</span><span class="p">,</span> <span class="s2">&quot;speedTest&quot;</span><span class="p">])</span>
+    <span class="k">except</span> <span class="n">getopt</span><span class="o">.</span><span class="n">GetoptError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">opt</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">opts</span><span class="p">:</span>
+        <span class="nb">print</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="si">{}</span><span class="se">\t</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">opt</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--timesteps&quot;</span><span class="p">):</span>
+            <span class="n">timesteps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--batchsize&quot;</span><span class="p">):</span>
+            <span class="n">batchsize</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--vt&quot;</span><span class="p">):</span>
+            <span class="n">vt</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--input_neurons&quot;</span><span class="p">):</span>
+            <span class="n">input_neurons</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--MSO_neurons&quot;</span><span class="p">):</span>
+            <span class="n">MSO_neurons</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--dt&quot;</span><span class="p">):</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--storeData&quot;</span><span class="p">):</span>
+            <span class="n">storeData</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--ITDoptions&quot;</span><span class="p">):</span>
+            <span class="n">ITDoptions</span> <span class="o">=</span> <span class="nb">eval</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--T&quot;</span><span class="p">):</span>
+            <span class="n">T</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--memorySavingMode&quot;</span><span class="p">):</span>
+            <span class="n">memorySavingModeFlag</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--parallel&quot;</span><span class="p">):</span>
+            <span class="n">parallel</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">arg</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--profileBatch&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">mem_profiler_not_available</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;memory_profiler not installed&#39;</span><span class="p">)</span>
+            <span class="n">batchmemprofile</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--profileMSOneurons&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">mem_profiler_not_available</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;memory_profiler not installed&#39;</span><span class="p">)</span>
+            <span class="n">msomemprofile</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--speedTest&quot;</span><span class="p">):</span>
+            <span class="n">speedtest</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">elif</span> <span class="n">opt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;--speedTestMSO&quot;</span><span class="p">):</span>
+            <span class="n">speedtestmso</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">msoneurons</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+    <span class="n">batchsizes</span> <span class="o">=</span> <span class="p">[</span><span class="mi">80</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">batchmemprofile</span><span class="p">:</span>
+        <span class="n">mem_batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">batchsizes</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">batchsize</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">batchsizes</span><span class="p">):</span>
+            <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="p">(</span>
+                <span class="n">timesteps</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">batchsize</span><span class="p">,</span>
+                <span class="n">batchsize</span><span class="o">=</span><span class="n">batchsize</span><span class="p">,</span>
+                <span class="n">vt</span><span class="o">=</span><span class="n">vt</span><span class="p">,</span>
+                <span class="n">input_neurons</span><span class="o">=</span><span class="n">input_neurons</span><span class="p">,</span>
+                <span class="n">MSO_neurons</span><span class="o">=</span><span class="n">MSO_neurons</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">storeData</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">ITDoptions</span><span class="o">=</span><span class="n">ITDoptions</span><span class="p">,</span>
+                <span class="n">T</span><span class="o">=</span><span class="n">T</span><span class="p">,</span>
+                <span class="n">memorySavingMode</span><span class="o">=</span><span class="n">memorySavingModeFlag</span><span class="p">,</span>
+                <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span>
+            <span class="p">)</span>
+
+            <span class="n">sim</span><span class="o">.</span><span class="n">testMode</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="n">mem_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">memory_usage</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">))</span>
+            <span class="nb">print</span> <span class="n">mem_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="nb">print</span> <span class="n">batchsizes</span>
+        <span class="nb">print</span> <span class="n">mem_batch</span>
+    <span class="k">elif</span> <span class="n">msomemprofile</span><span class="p">:</span>
+        <span class="n">mem_mso</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">msoneurons</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">msoinput</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">msoneurons</span><span class="p">):</span>
+            <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="p">(</span>
+                <span class="n">timesteps</span><span class="o">=</span><span class="n">timesteps</span><span class="p">,</span>
+                <span class="n">batchsize</span><span class="o">=</span><span class="n">batchsize</span><span class="p">,</span>
+                <span class="n">vt</span><span class="o">=</span><span class="n">vt</span><span class="p">,</span>
+                <span class="n">input_neurons</span><span class="o">=</span><span class="n">input_neurons</span><span class="p">,</span>
+                <span class="n">MSO_neurons</span><span class="o">=</span><span class="n">msoinput</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">storeData</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">ITDoptions</span><span class="o">=</span><span class="n">ITDoptions</span><span class="p">,</span>
+                <span class="n">T</span><span class="o">=</span><span class="n">T</span><span class="p">,</span>
+                <span class="n">memorySavingMode</span><span class="o">=</span><span class="n">memorySavingModeFlag</span><span class="p">,</span>
+                <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span>
+            <span class="p">)</span>
+
+            <span class="n">sim</span><span class="o">.</span><span class="n">testMode</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="n">mem_mso</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">memory_usage</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">))</span>
+            <span class="nb">print</span> <span class="n">mem_mso</span>
+            <span class="nb">print</span> <span class="n">mem_mso</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="nb">print</span> <span class="n">mem_mso</span>
+
+    <span class="k">elif</span> <span class="n">speedtest</span><span class="p">:</span>
+        <span class="n">speed_batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">batchsizes</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">batchsize</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">batchsizes</span><span class="p">):</span>
+            <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="p">(</span>
+                <span class="n">timesteps</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="nb">max</span><span class="p">(</span><span class="n">batchsizes</span><span class="p">),</span>
+                <span class="n">batchsize</span><span class="o">=</span><span class="n">batchsize</span><span class="p">,</span>
+                <span class="n">vt</span><span class="o">=</span><span class="n">vt</span><span class="p">,</span>
+                <span class="n">input_neurons</span><span class="o">=</span><span class="n">input_neurons</span><span class="p">,</span>
+                <span class="n">MSO_neurons</span><span class="o">=</span><span class="n">MSO_neurons</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">storeData</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">ITDoptions</span><span class="o">=</span><span class="n">ITDoptions</span><span class="p">,</span>
+                <span class="n">T</span><span class="o">=</span><span class="n">T</span><span class="p">,</span>
+                <span class="n">memorySavingMode</span><span class="o">=</span><span class="n">memorySavingModeFlag</span><span class="p">,</span>
+                <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span>
+            <span class="p">)</span>
+
+            <span class="n">sim</span><span class="o">.</span><span class="n">testMode</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="n">speed_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+            <span class="n">speed_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+            <span class="nb">print</span> <span class="n">speed_batch</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="nb">print</span> <span class="n">speed_batch</span>
+
+    <span class="k">elif</span> <span class="n">speedtestmso</span><span class="p">:</span>
+        <span class="n">speed_mso</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">msoneurons</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">nr_mso</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">msoneurons</span><span class="p">):</span>
+            <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="p">(</span>
+                <span class="n">timesteps</span><span class="o">=</span><span class="n">timesteps</span><span class="p">,</span>
+                <span class="n">batchsize</span><span class="o">=</span><span class="n">batchsize</span><span class="p">,</span>
+                <span class="n">vt</span><span class="o">=</span><span class="n">vt</span><span class="p">,</span>
+                <span class="n">input_neurons</span><span class="o">=</span><span class="n">input_neurons</span><span class="p">,</span>
+                <span class="n">MSO_neurons</span><span class="o">=</span><span class="n">nr_mso</span><span class="p">,</span>
+                <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+                <span class="n">storeData</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">ITDoptions</span><span class="o">=</span><span class="n">ITDoptions</span><span class="p">,</span>
+                <span class="n">T</span><span class="o">=</span><span class="n">T</span><span class="p">,</span>
+                <span class="n">memorySavingMode</span><span class="o">=</span><span class="n">memorySavingModeFlag</span><span class="p">,</span>
+                <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span>
+            <span class="p">)</span>
+
+            <span class="n">sim</span><span class="o">.</span><span class="n">testMode</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="n">speed_mso</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+            <span class="n">speed_mso</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span>
+            <span class="nb">print</span> <span class="n">speed_mso</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="nb">print</span> <span class="n">speed_mso</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">sim</span> <span class="o">=</span> <span class="n">MSOModel</span><span class="p">(</span>
+            <span class="n">timesteps</span><span class="o">=</span><span class="n">timesteps</span><span class="p">,</span>
+            <span class="n">batchsize</span><span class="o">=</span><span class="n">batchsize</span><span class="p">,</span>
+            <span class="n">vt</span><span class="o">=</span><span class="n">vt</span><span class="p">,</span>
+            <span class="n">input_neurons</span><span class="o">=</span><span class="n">input_neurons</span><span class="p">,</span>
+            <span class="n">MSO_neurons</span><span class="o">=</span><span class="n">MSO_neurons</span><span class="p">,</span>
+            <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">,</span>
+            <span class="n">storeData</span><span class="o">=</span><span class="n">storeData</span><span class="p">,</span>
+            <span class="n">ITDoptions</span><span class="o">=</span><span class="n">ITDoptions</span><span class="p">,</span>
+            <span class="n">T</span><span class="o">=</span><span class="n">T</span><span class="p">,</span>
+            <span class="n">memorySavingMode</span><span class="o">=</span><span class="n">memorySavingModeFlag</span><span class="p">,</span>
+            <span class="n">parallel</span><span class="o">=</span><span class="n">parallel</span>
+        <span class="p">)</span>
+
+        <span class="n">sim</span><span class="o">.</span><span class="n">run</span><span class="p">()</span></div>
+
+
+   <span class="c1"># sim.run()</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Lotte Weerts.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.9</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
