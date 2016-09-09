@@ -1,6 +1,6 @@
 # MSOModelModule
 
-Welcome to the MSOmodelModule! This is the documentation of the model of the MSO as shown in Weerts (2016). This README file contains instructions on installation and usage and instructions on how to reproduce the graphs in chapter 3, 4 and the appendix. 
+Welcome to the documentaion of the MSOmodelModule! This is the documentation of the model of the MSO as shown in Weerts (2016). This README file contains instructions on installation and usage and instructions on how to reproduce the graphs in chapter 3, 4 and the appendix. 
 
 ## Installation 
 
