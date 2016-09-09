@@ -84,4 +84,4 @@ This will generate a test folder in the folder that stores a sparse matrix with 
 
 Please do not run this method on the models stored in the dataset, as the addition of new test files could disrupt the notebooks that generate the figures (see above) (you could however just copy one of the data folders and run the above command on the path of your copied folder).  
 
-* Weerts, L. Modelling Unsupervised Spike-Timing-Dependent Plasticity for the Detection of Interaural Time Differences in the Medial Superior Olive (2016) 
+* Weerts, L. (2016) Modelling Unsupervised Spike-Timing-Dependent Plasticity for the Detection of Interaural Time Differences in the Medial Superior Olive
